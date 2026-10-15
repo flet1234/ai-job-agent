@@ -1,12 +1,17 @@
 {
   "name": "ai-job-agent",
   "version": "1.0.0",
-  "private" :true,
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck:api": "npm run typecheck --workspace=@ai-job-agent/api",
+    "start:api": "npm run build --workspace=@ai-job-agent/api && node --env-file=.env apps/api/dist/index.js"
   },
   "keywords": [],
-  "workspaces":["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "author": "",
   "license": "ISC",
   "description": ""
