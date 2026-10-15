@@ -8,7 +8,15 @@
     "build": "tsc"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.13.3",
+    "jest": "^30.5.2",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "openai": "^7.10.0",
+    "zod": "^4.5.4"
   }
 }
