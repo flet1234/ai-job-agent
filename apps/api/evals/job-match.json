@@ -1,0 +1,19 @@
+[
+  {
+    "id": "core-skills-match-testing-missing",
+    "jobAnalysis": {
+      "title": "Frontend Engineer",
+      "seniority": null,
+      "technologies": ["React", "TypeScript", "Next.js", "REST APIs"],
+      "responsibilities": ["Build accessible web interfaces.", "Integrate REST APIs.", "Collaborate with backend engineers."],
+      "requirements": ["React skills.", "TypeScript skills.", "Experience with automated testing."]
+    },
+    "userProfile": {
+      "skills": ["TypeScript", "React", "Node.js"],
+      "experienceSummary": "I build web applications with React, Next.js, Node.js, and REST APIs."
+    },
+    "expectedMatchingSkills": ["React", "TypeScript"],
+    "expectedMissingSkills": ["automated testing"],
+    "forbiddenMissingSkills": ["accessible", "collaboration"]
+  }
+]

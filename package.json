@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck:api": "npm run typecheck --workspace=@ai-job-agent/api",
-    "start:api": "npm run build --workspace=@ai-job-agent/api && node --env-file=.env apps/api/dist/index.js"
+    "start:api": "npm run build --workspace=@ai-job-agent/api && node --env-file=.env apps/api/dist/index.js",
+    "eval:api": "npm run build --workspace=@ai-job-agent/api && node --env-file=.env --experimental-vm-modules node_modules/jest/bin/jest.js --config apps/api/jest.eval.config.mjs --runInBand"
   },
   "keywords": [],
   "workspaces": [
