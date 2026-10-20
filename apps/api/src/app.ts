@@ -2,8 +2,8 @@ import express from "express";
 import { analyzeJobSchema } from "./schemas/analyze-job.js";
 import { analyzeJob } from "./services/analyze-job.js";
 import OpenAI from "openai";
-import { getUserProfile } from "./tools/get-user-profile.js";
 import { matchJob } from "./services/match-job.js";
+import { matchJobRequestSchema } from "./schemas/job-match-request.js";
 
 export const app = express();
 
@@ -40,12 +40,11 @@ app.post("/analyze-job", async (req, res) => {
 });
 
 app.post("/match-job", async (req, res) => {
-  const result = analyzeJobSchema.safeParse(req.body);
+  const result = matchJobRequestSchema.safeParse(req.body);
   if (result.success) {
     try {
       const jobAnalysis = await analyzeJob(result.data.jobDescription);
-      const profile = getUserProfile();
-      const match = await matchJob(jobAnalysis, profile);
+      const match = await matchJob(jobAnalysis, result.data.userProfile);
       res.status(200).json({ jobAnalysis, match });
     } catch (error) {
       if (error instanceof OpenAI.APIError) {
@@ -62,7 +61,7 @@ app.post("/match-job", async (req, res) => {
       res.status(502).json({ error: "Job match provider request failed" });
     }
   } else {
-    res.status(400).json({ error: "Invalid Job Description" });
+    res.status(400).json({ error: "Invalid match job request" });
     return;
   }
 });

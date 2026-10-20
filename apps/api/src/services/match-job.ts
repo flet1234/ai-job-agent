@@ -3,7 +3,7 @@ import { config } from "../config.js";
 import { openai } from "../openai-client.js";
 import { jobMatchSchema, type JobMatch } from "../schemas/job-match.js";
 import type { JobAnalysis } from "../schemas/jobAnalysis.js";
-import type { UserProfile } from "../tools/get-user-profile.js";
+import type { UserProfile } from "../schemas/user-profile.js";
 
 export async function matchJob(jobAnalysis: JobAnalysis, userProfile: UserProfile): Promise<JobMatch> {
   const instructions =
