@@ -4,8 +4,15 @@ import { analyzeJob } from "./services/analyze-job.js";
 import OpenAI from "openai";
 import { matchJob } from "./services/match-job.js";
 import { matchJobRequestSchema } from "./schemas/job-match-request.js";
+import cors from "cors";
 
 export const app = express();
+
+app.use(
+  cors({
+    origin: "http://localhost:3000"
+  })
+);
 
 app.use(express.json({ limit: 100000 }));
 
