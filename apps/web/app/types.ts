@@ -38,7 +38,7 @@ export type CvProfile = {
 };
 
 export type Recommendation = {
-  kind: "add_to_cv" | "learn" | "clarify";
+  kind: "add_to_cv" | "learn" | "clarify" | "unverified_addition";
   title: string;
   explanation: string;
 };
@@ -53,6 +53,7 @@ export type TailorCvResponse = {
     recommendation: string;
   };
   recommendations: Recommendation[];
+  coverLetter: string | null;
 };
 
 export type StoredCv = {

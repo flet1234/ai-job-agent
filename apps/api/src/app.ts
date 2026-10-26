@@ -112,7 +112,12 @@ app.post("/tailor-cv", async (req, res) => {
 
   try {
     const jobAnalysis = await analyzeJob(result.data.jobDescription);
-    const tailoredResult = await tailorCv(jobAnalysis, result.data.cvProfile);
+    const tailoredResult = await tailorCv(jobAnalysis, result.data.cvProfile, {
+      tailorSections: result.data.tailorSections,
+      maxPages: result.data.maxPages,
+      includeCoverLetter: result.data.includeCoverLetter,
+      idealResumeMode: result.data.idealResumeMode
+    });
     res.status(200).json({ jobAnalysis, ...tailoredResult });
   } catch (error) {
     if (error instanceof OpenAI.APIError) {
