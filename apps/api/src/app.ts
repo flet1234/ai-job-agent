@@ -5,6 +5,10 @@ import OpenAI from "openai";
 import { matchJob } from "./services/match-job.js";
 import { matchJobRequestSchema } from "./schemas/job-match-request.js";
 import cors from "cors";
+import { extractCvSchema } from "./schemas/extract-cv.js";
+import { extractCvProfile } from "./services/extract-cv-profile.js";
+import { tailorCvRequestSchema } from "./schemas/tailor-cv-request.js";
+import { tailorCv } from "./services/tailor-cv.js";
 
 export const app = express();
 
@@ -70,6 +74,59 @@ app.post("/match-job", async (req, res) => {
   } else {
     res.status(400).json({ error: "Invalid match job request" });
     return;
+  }
+});
+
+app.post("/extract-cv", async (req, res) => {
+  const result = extractCvSchema.safeParse(req.body);
+  if (!result.success) {
+    res.status(400).json({ error: "Invalid CV extraction request" });
+    return;
+  }
+
+  try {
+    const cvProfile = await extractCvProfile(result.data.profileText);
+    res.status(200).json({ cvProfile });
+  } catch (error) {
+    if (error instanceof OpenAI.APIError) {
+      console.error("OpenAI request failed", {
+        status: error.status,
+        code: error.code,
+        type: error.type
+      });
+    } else {
+      console.error("Unexpected CV extraction failure", {
+        name: error instanceof Error ? error.name : "Unknown"
+      });
+    }
+    res.status(502).json({ error: "CV extraction provider request failed" });
+  }
+});
+
+app.post("/tailor-cv", async (req, res) => {
+  const result = tailorCvRequestSchema.safeParse(req.body);
+  if (!result.success) {
+    res.status(400).json({ error: "Invalid CV tailoring request" });
+    return;
+  }
+
+  try {
+    const jobAnalysis = await analyzeJob(result.data.jobDescription);
+    const tailoredResult = await tailorCv(jobAnalysis, result.data.cvProfile);
+    res.status(200).json({ jobAnalysis, ...tailoredResult });
+  } catch (error) {
+    if (error instanceof OpenAI.APIError) {
+      console.error("OpenAI request failed", {
+        status: error.status,
+        code: error.code,
+        type: error.type
+      });
+    } else {
+      console.error("Unexpected CV tailoring failure", {
+        name: error instanceof Error ? error.name : "Unknown"
+      });
+    }
+    res.status(502).json({ error: "CV tailoring provider request failed" });
   }
 });
 
