@@ -19,6 +19,13 @@ const sectionOptions = [
 
 type TailorSection = (typeof sectionOptions)[number]["value"];
 
+const LOADING_STEPS = [
+  "Analyzing job requirements & core keywords…",
+  "Evaluating your skills & experience match…",
+  "Refining achievements and highlights for ATS…",
+  "Formatting CV in selected preset & generating insights…"
+];
+
 function linkLabel(link: string, index: number): string {
   try {
     const hostname = new URL(link).hostname.replace(/^www\./, "").toLowerCase();
@@ -132,6 +139,8 @@ function migrateStoredCv(value: unknown): StoredCv | null {
 }
 
 export function CvWorkspace() {
+  const [activeScreen, setActiveScreen] = useState<"starting" | "result">("starting");
+  const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const [storedCv, setStoredCv] = useState<StoredCv | null>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [tailorSections, setTailorSections] = useState<TailorSection[]>(["professionalSummary", "skillGroups"]);
@@ -146,6 +155,17 @@ export function CvWorkspace() {
 
   const activePreset = PRESETS[selectedPresetId];
   const isClassic = selectedPresetId === "classic_compact";
+
+  useEffect(() => {
+    if (!isTailoring) {
+      setLoadingStepIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingStepIndex((prev) => (prev + 1) % LOADING_STEPS.length);
+    }, 2600);
+    return () => clearInterval(interval);
+  }, [isTailoring]);
 
   useEffect(() => {
     const savedValue = window.localStorage.getItem(storageKey);
@@ -200,6 +220,10 @@ export function CvWorkspace() {
     setError(null);
     setResult(null);
     setIsTailoring(true);
+    setActiveScreen("result");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
 
     try {
       const response = await fetch(`${apiUrl}/tailor-cv`, {
@@ -229,6 +253,7 @@ export function CvWorkspace() {
     setStoredCv(null);
     setResult(null);
     setError(null);
+    setActiveScreen("starting");
   }
 
   async function copyTailoredCv() {
@@ -616,198 +641,564 @@ export function CvWorkspace() {
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "24px 16px", fontFamily: activePreset.web.fontFamily }}>
-      <h1>AI Job Agent</h1>
-      <p>Save your CV once, select a design preset, and tailor it to any job description.</p>
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse-scale {
+          0%, 100% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.6; }
+          50% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+        }
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes progress-indeterminate {
+          0% { left: -30%; width: 30%; }
+          50% { left: 25%; width: 55%; }
+          100% { left: 100%; width: 25%; }
+        }
+      `}</style>
 
-      {/* Preset Selector Card */}
-      <section style={{ margin: "20px 0", padding: "16px", border: "1px solid #E5E7EB", borderRadius: "10px", background: "#F9FAFB" }}>
-        <h2 style={{ margin: "0 0 12px 0", fontSize: "1.15rem" }}>Visual Design & ATS Preset</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
-          {(Object.keys(PRESETS) as PresetId[]).map((id) => {
-            const p = PRESETS[id];
-            const isSelected = selectedPresetId === id;
-            return (
-              <label
-                key={id}
+      {/* Starting Screen (Screen 1) */}
+      {activeScreen === "starting" ? (
+        <div>
+          {/* Top Navigation Bar on Starting Screen */}
+          <nav
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "10px 0 16px 0",
+              marginBottom: "20px",
+              borderBottom: "1px solid #E5E7EB"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span
                 style={{
-                  display: "block",
-                  padding: "14px",
-                  borderRadius: "8px",
-                  border: isSelected ? `2px solid ${p.web.primaryColor}` : "1px solid #D1D5DB",
-                  background: isSelected ? p.web.badgeBg : "#FFFFFF",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease"
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: activePreset.web.primaryColor,
+                  color: "#FFFFFF",
+                  fontSize: "0.8rem",
+                  fontWeight: 700
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <input
-                      type="radio"
-                      name="preset-selector"
-                      value={id}
-                      checked={isSelected}
-                      onChange={() => setSelectedPresetId(id)}
-                    />
-                    <strong style={{ color: p.web.primaryColor }}>{p.name}</strong>
-                  </div>
-                  <span
+                1
+              </span>
+              <strong style={{ fontSize: "1rem", color: "#111827" }}>Starting Screen: CV & Job Input</strong>
+            </div>
+
+            <div>
+              {result ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveScreen("result");
+                    if (typeof window !== "undefined") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: `1.5px solid ${activePreset.web.primaryColor}`,
+                    background: activePreset.web.primaryColor,
+                    color: "#FFFFFF",
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+                  }}
+                >
+                  <span>Forward to Result</span>
+                  <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>→</span>
+                </button>
+              ) : null}
+            </div>
+          </nav>
+
+          <h1>AI Job Agent</h1>
+          <p>Save your CV once, select a design preset, and tailor it to any job description.</p>
+
+          {/* Preset Selector Card */}
+          <section style={{ margin: "20px 0", padding: "16px", border: "1px solid #E5E7EB", borderRadius: "10px", background: "#F9FAFB" }}>
+            <h2 style={{ margin: "0 0 12px 0", fontSize: "1.15rem" }}>Visual Design & ATS Preset</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+              {(Object.keys(PRESETS) as PresetId[]).map((id) => {
+                const p = PRESETS[id];
+                const isSelected = selectedPresetId === id;
+                return (
+                  <label
+                    key={id}
                     style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      padding: "2px 8px",
-                      borderRadius: "12px",
-                      background: p.web.accentGlow,
-                      color: p.web.badgeText,
-                      border: `1px solid ${p.web.cardBorder}`
+                      display: "block",
+                      padding: "14px",
+                      borderRadius: "8px",
+                      border: isSelected ? `2px solid ${p.web.primaryColor}` : "1px solid #D1D5DB",
+                      background: isSelected ? p.web.badgeBg : "#FFFFFF",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease"
                     }}
                   >
-                    {p.badge}
-                  </span>
-                </div>
-                <p style={{ margin: "4px 0 0 24px", fontSize: "0.85rem", color: "#4B5563", lineHeight: 1.4 }}>
-                  {p.description}
-                </p>
-              </label>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* CV Storage Section */}
-      <section style={{ marginBottom: "24px" }}>
-        <h2>Your CV</h2>
-        <p>Your extracted CV profile is stored locally in this browser.</p>
-        {storedCv ? (
-          <>
-            <p>
-              <strong>{storedCv.cvProfile.fullName ?? "CV profile"}</strong> is saved in this browser.
-            </p>
-            <p>{storedCv.cvProfile.skillGroups.reduce((total, group) => total + group.skills.length, 0)} technical skills extracted.</p>
-            <label style={{ display: "inline-block", marginRight: "12px" }}>
-              Replace CV:{" "}
-              <input
-                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                disabled={isExtracting}
-                onChange={(event) => handleFileChange(event.target.files?.[0])}
-                type="file"
-              />
-            </label>
-            <button onClick={deleteSavedCv} type="button">Delete saved CV</button>
-          </>
-        ) : (
-          <label>
-            Upload a PDF or DOCX CV:{" "}
-            <input
-              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              disabled={isExtracting}
-              onChange={(event) => handleFileChange(event.target.files?.[0])}
-              type="file"
-            />
-          </label>
-        )}
-        {isExtracting ? <p>Reading and extracting your CV…</p> : null}
-      </section>
-
-      {/* Job Description & Tailor Controls */}
-      <section style={{ marginBottom: "28px" }}>
-        <h2>Job description</h2>
-        <label htmlFor="job-description" style={{ display: "block", marginBottom: "6px" }}>
-          Paste the full job description:
-        </label>
-        <textarea
-          id="job-description"
-          onChange={(event) => setJobDescription(event.target.value)}
-          required
-          rows={7}
-          style={{ width: "100%", padding: "8px", boxSizing: "border-box", borderRadius: "6px" }}
-          value={jobDescription}
-        />
-
-        {storedCv ? (
-          <fieldset style={{ margin: "16px 0", padding: "12px 16px", borderRadius: "8px" }}>
-            <legend>Sections AI may tailor</legend>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "14px" }}>
-              {sectionOptions.map((section) => (
-                <label key={section.value} style={{ cursor: "pointer" }}>
-                  <input
-                    checked={tailorSections.includes(section.value)}
-                    onChange={() => toggleSection(section.value)}
-                    type="checkbox"
-                    style={{ marginRight: "6px" }}
-                  />
-                  {section.label}
-                </label>
-              ))}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <input
+                          type="radio"
+                          name="preset-selector"
+                          value={id}
+                          checked={isSelected}
+                          onChange={() => setSelectedPresetId(id)}
+                        />
+                        <strong style={{ color: p.web.primaryColor }}>{p.name}</strong>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          background: p.web.accentGlow,
+                          color: p.web.badgeText,
+                          border: `1px solid ${p.web.cardBorder}`
+                        }}
+                      >
+                        {p.badge}
+                      </span>
+                    </div>
+                    <p style={{ margin: "4px 0 0 24px", fontSize: "0.85rem", color: "#4B5563", lineHeight: 1.4 }}>
+                      {p.description}
+                    </p>
+                  </label>
+                );
+              })}
             </div>
-          </fieldset>
-        ) : null}
+          </section>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "center", margin: "12px 0" }}>
-          <label>
-            Target length:{" "}
-            <select onChange={(event) => setMaxPages(Number(event.target.value))} value={maxPages}>
-              {[1, 2, 3, 4, 5].map((pageCount) => (
-                <option key={pageCount} value={pageCount}>
-                  {pageCount} page{pageCount === 1 ? "" : "s"}
-                </option>
-              ))}
-            </select>
-          </label>
+          {/* CV Storage Section */}
+          <section style={{ marginBottom: "24px" }}>
+            <h2>Your CV</h2>
+            <p>Your extracted CV profile is stored locally in this browser.</p>
+            {storedCv ? (
+              <>
+                <p>
+                  <strong>{storedCv.cvProfile.fullName ?? "CV profile"}</strong> is saved in this browser.
+                </p>
+                <p>{storedCv.cvProfile.skillGroups.reduce((total, group) => total + group.skills.length, 0)} technical skills extracted.</p>
+                <label style={{ display: "inline-block", marginRight: "12px" }}>
+                  Replace CV:{" "}
+                  <input
+                    accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    disabled={isExtracting}
+                    onChange={(event) => handleFileChange(event.target.files?.[0])}
+                    type="file"
+                  />
+                </label>
+                <button onClick={deleteSavedCv} type="button">Delete saved CV</button>
+              </>
+            ) : (
+              <label>
+                Upload a PDF or DOCX CV:{" "}
+                <input
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  disabled={isExtracting}
+                  onChange={(event) => handleFileChange(event.target.files?.[0])}
+                  type="file"
+                />
+              </label>
+            )}
+            {isExtracting ? <p>Reading and extracting your CV…</p> : null}
+          </section>
 
-          <label style={{ cursor: "pointer" }}>
-            <input
-              checked={includeCoverLetter}
-              onChange={(event) => setIncludeCoverLetter(event.target.checked)}
-              type="checkbox"
-              style={{ marginRight: "6px" }}
+          {/* Job Description & Tailor Controls */}
+          <section style={{ marginBottom: "28px" }}>
+            <h2>Job description</h2>
+            <label htmlFor="job-description" style={{ display: "block", marginBottom: "6px" }}>
+              Paste the full job description:
+            </label>
+            <textarea
+              id="job-description"
+              onChange={(event) => setJobDescription(event.target.value)}
+              required
+              rows={7}
+              style={{ width: "100%", padding: "8px", boxSizing: "border-box", borderRadius: "6px" }}
+              value={jobDescription}
             />
-            Generate a tailored cover letter
-          </label>
 
-          <label style={{ cursor: "pointer" }}>
-            <input
-              checked={idealResumeMode}
-              onChange={(event) => setIdealResumeMode(event.target.checked)}
-              type="checkbox"
-              style={{ marginRight: "6px" }}
-            />
-            Create an ideal-role CV draft (may add unverified content)
-          </label>
+            {storedCv ? (
+              <fieldset style={{ margin: "16px 0", padding: "12px 16px", borderRadius: "8px" }}>
+                <legend>Sections AI may tailor</legend>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "14px" }}>
+                  {sectionOptions.map((section) => (
+                    <label key={section.value} style={{ cursor: "pointer" }}>
+                      <input
+                        checked={tailorSections.includes(section.value)}
+                        onChange={() => toggleSection(section.value)}
+                        type="checkbox"
+                        style={{ marginRight: "6px" }}
+                      />
+                      {section.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "center", margin: "12px 0" }}>
+              <label>
+                Target length:{" "}
+                <select onChange={(event) => setMaxPages(Number(event.target.value))} value={maxPages}>
+                  {[1, 2, 3, 4, 5].map((pageCount) => (
+                    <option key={pageCount} value={pageCount}>
+                      {pageCount} page{pageCount === 1 ? "" : "s"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ cursor: "pointer" }}>
+                <input
+                  checked={includeCoverLetter}
+                  onChange={(event) => setIncludeCoverLetter(event.target.checked)}
+                  type="checkbox"
+                  style={{ marginRight: "6px" }}
+                />
+                Generate a tailored cover letter
+              </label>
+
+              <label style={{ cursor: "pointer" }}>
+                <input
+                  checked={idealResumeMode}
+                  onChange={(event) => setIdealResumeMode(event.target.checked)}
+                  type="checkbox"
+                  style={{ marginRight: "6px" }}
+                />
+                Create an ideal-role CV draft (may add unverified content)
+              </label>
+            </div>
+
+            {idealResumeMode ? (
+              <p style={{ color: "#B45309", fontSize: "0.9rem" }}>
+                This draft can include job-targeted skills or experience not found in your original CV. Every addition will be identified in Recommendations.
+              </p>
+            ) : null}
+
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
+              <button
+                disabled={!storedCv || !jobDescription.trim() || isTailoring}
+                onClick={handleTailor}
+                type="button"
+                style={{
+                  padding: "10px 24px",
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  cursor: !storedCv || !jobDescription.trim() || isTailoring ? "not-allowed" : "pointer",
+                  background: activePreset.web.primaryColor,
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: "6px",
+                  opacity: !storedCv || !jobDescription.trim() || isTailoring ? 0.6 : 1
+                }}
+              >
+                {isTailoring ? "Tailoring…" : result ? "Re-tailor my CV" : "Tailor my CV"}
+              </button>
+
+              {result ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveScreen("result");
+                    if (typeof window !== "undefined") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "10px 20px",
+                    fontSize: "1rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: "#FFFFFF",
+                    color: activePreset.web.primaryColor,
+                    border: `1.5px solid ${activePreset.web.primaryColor}`,
+                    borderRadius: "6px"
+                  }}
+                >
+                  <span>View current result</span>
+                  <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>→</span>
+                </button>
+              ) : null}
+            </div>
+          </section>
+
+          {error ? <p role="alert" style={{ color: "#DC2626", fontWeight: "bold" }}>{error}</p> : null}
         </div>
+      ) : null}
 
-        {idealResumeMode ? (
-          <p style={{ color: "#B45309", fontSize: "0.9rem" }}>
-            This draft can include job-targeted skills or experience not found in your original CV. Every addition will be identified in Recommendations.
-          </p>
-        ) : null}
+      {/* Result Screen (Screen 2) */}
+      {activeScreen === "result" ? (
+        <div>
+          {/* Top Navigation Bar on Result Screen with Back Arrow */}
+          <nav
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "10px 0 16px 0",
+              marginBottom: "20px",
+              borderBottom: "1px solid #E5E7EB"
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setActiveScreen("starting");
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "1px solid #D1D5DB",
+                background: "#FFFFFF",
+                color: "#1F2937",
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+              }}
+            >
+              <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>←</span>
+              <span>Back to Starting Screen</span>
+            </button>
 
-        <button
-          disabled={!storedCv || !jobDescription.trim() || isTailoring}
-          onClick={handleTailor}
-          type="button"
-          style={{
-            padding: "10px 24px",
-            fontSize: "1rem",
-            fontWeight: 600,
-            cursor: "pointer",
-            background: activePreset.web.primaryColor,
-            color: "#FFFFFF",
-            border: "none",
-            borderRadius: "6px",
-            marginTop: "8px"
-          }}
-        >
-          {isTailoring ? "Tailoring…" : "Tailor my CV"}
-        </button>
-      </section>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.9rem", color: "#6B7280" }}>
+              <span>Screen:</span>
+              <strong style={{ color: "#111827" }}>
+                {isTailoring ? "Tailoring in Progress" : "Tailored Result"}
+              </strong>
+            </div>
+          </nav>
 
-      {error ? <p role="alert" style={{ color: "#DC2626", fontWeight: "bold" }}>{error}</p> : null}
+          {/* Loading Animation & Spinner */}
+          {isTailoring ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "60px 24px",
+                background: "#FFFFFF",
+                borderRadius: "12px",
+                border: "1px solid #E5E7EB",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
+                maxWidth: 620,
+                margin: "40px auto",
+                textAlign: "center"
+              }}
+            >
+              {/* Spinner with pulsing center */}
+              <div style={{ position: "relative", width: 72, height: 72, marginBottom: "24px" }}>
+                <div
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: "50%",
+                    border: "4px solid #E5E7EB",
+                    borderTopColor: activePreset.web.primaryColor,
+                    animation: "spin 0.9s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite"
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    background: activePreset.web.accentGlow,
+                    animation: "pulse-scale 1.5s ease-in-out infinite"
+                  }}
+                />
+              </div>
 
-      {/* Results View */}
-      {result ? (
-        <section style={{ marginTop: "32px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
-            <h2>Tailored CV Result (Match Score: {result.match.matchScore}%)</h2>
+              <h2 style={{ margin: "0 0 8px 0", fontSize: "1.35rem", color: "#111827", fontWeight: 700 }}>
+                Tailoring your CV with AI…
+              </h2>
+
+              <p
+                key={loadingStepIndex}
+                style={{
+                  margin: "0 0 20px 0",
+                  fontSize: "0.95rem",
+                  color: activePreset.web.primaryColor,
+                  fontWeight: 600,
+                  minHeight: "24px",
+                  animation: "fade-in 0.3s ease"
+                }}
+              >
+                {LOADING_STEPS[loadingStepIndex]}
+              </p>
+
+              {/* Progress bar */}
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: 380,
+                  height: 6,
+                  background: "#F3F4F6",
+                  borderRadius: 999,
+                  overflow: "hidden",
+                  position: "relative",
+                  marginBottom: "28px"
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    height: "100%",
+                    background: `linear-gradient(90deg, ${activePreset.web.primaryColor}, #3B82F6)`,
+                    borderRadius: 999,
+                    animation: "progress-indeterminate 1.8s ease-in-out infinite"
+                  }}
+                />
+              </div>
+
+              {/* Steps checklist */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  width: "100%",
+                  maxWidth: 420,
+                  textAlign: "left",
+                  background: "#F9FAFB",
+                  padding: "16px 20px",
+                  borderRadius: "8px",
+                  border: "1px solid #F3F4F6"
+                }}
+              >
+                {LOADING_STEPS.map((step, idx) => {
+                  const isDone = idx < loadingStepIndex;
+                  const isCurrent = idx === loadingStepIndex;
+                  return (
+                    <div
+                      key={step}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        fontSize: "0.85rem",
+                        color: isCurrent ? "#111827" : isDone ? "#059669" : "#9CA3AF",
+                        fontWeight: isCurrent ? 600 : isDone ? 500 : 400
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "0.75rem",
+                          background: isDone ? "#D1FAE5" : isCurrent ? activePreset.web.badgeBg : "#E5E7EB",
+                          color: isDone ? "#059669" : isCurrent ? activePreset.web.primaryColor : "#9CA3AF"
+                        }}
+                      >
+                        {isDone ? "✓" : idx + 1}
+                      </span>
+                      <span>{step}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p style={{ margin: "20px 0 0 0", fontSize: "0.85rem", color: "#6B7280" }}>
+                AI is tailoring your bullet points and aligning them with the job requirements.
+              </p>
+            </div>
+          ) : null}
+
+          {/* If Error during tailoring */}
+          {error && !isTailoring ? (
+            <div
+              style={{
+                margin: "40px auto",
+                maxWidth: 600,
+                padding: "24px",
+                background: "#FEF2F2",
+                border: "1px solid #F87171",
+                borderRadius: "10px",
+                textAlign: "center"
+              }}
+            >
+              <h3 style={{ margin: "0 0 8px 0", color: "#991B1B" }}>Tailoring Failed</h3>
+              <p style={{ margin: "0 0 16px 0", color: "#B91C1C" }}>{error}</p>
+              <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveScreen("starting");
+                    if (typeof window !== "undefined") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "1px solid #D1D5DB",
+                    background: "#FFFFFF",
+                    cursor: "pointer",
+                    fontWeight: 500
+                  }}
+                >
+                  ← Back to Starting Screen
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTailor}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "none",
+                    background: activePreset.web.primaryColor,
+                    color: "#FFFFFF",
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Results View */}
+          {result && !isTailoring ? (
+            <section style={{ marginTop: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+                <h2>Tailored CV Result (Match Score: {result.match.matchScore}%)</h2>
 
             {/* Live Preset Switcher */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1232,8 +1623,40 @@ export function CvWorkspace() {
               ))}
             </div>
           </div>
+
+          {/* Bottom Back Button */}
+          <div style={{ marginTop: "32px", display: "flex", justifyContent: "center" }}>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveScreen("starting");
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 24px",
+                borderRadius: "6px",
+                border: "1px solid #D1D5DB",
+                background: "#FFFFFF",
+                color: "#374151",
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+              }}
+            >
+              <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>←</span>
+              <span>Back to Starting Screen</span>
+            </button>
+          </div>
         </section>
       ) : null}
-    </main>
-  );
+    </div>
+  ) : null}
+</main>
+);
 }
