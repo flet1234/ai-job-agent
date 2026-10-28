@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CvProfile, StoredCv, TailorCvResponse } from "../types";
+import type { CvProfile, Recommendation, StoredCv, TailorCvResponse } from "../types";
 import { PRESETS, type PresetId } from "../presets";
 
 const storageKey = "ai-job-agent.saved-cv.v1";
@@ -150,7 +150,9 @@ export function CvWorkspace() {
   const [selectedPresetId, setSelectedPresetId] = useState<PresetId>("classic_compact");
   const [isExtracting, setIsExtracting] = useState(false);
   const [isTailoring, setIsTailoring] = useState(false);
+  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [coverLetterError, setCoverLetterError] = useState<string | null>(null);
   const [result, setResult] = useState<TailorCvResponse | null>(null);
 
   const activePreset = PRESETS[selectedPresetId];
@@ -185,6 +187,7 @@ export function CvWorkspace() {
     if (!file) return;
 
     setError(null);
+    setCoverLetterError(null);
     setResult(null);
     setIsExtracting(true);
 
@@ -218,6 +221,7 @@ export function CvWorkspace() {
     if (!storedCv) return;
 
     setError(null);
+    setCoverLetterError(null);
     setResult(null);
     setIsTailoring(true);
     setActiveScreen("result");
@@ -248,11 +252,54 @@ export function CvWorkspace() {
     }
   }
 
+  async function handleGenerateCoverLetter() {
+    if (!storedCv || !result) return;
+
+    setCoverLetterError(null);
+    setIsGeneratingCoverLetter(true);
+
+    try {
+      const response = await fetch(`${apiUrl}/tailor-cover-letter`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobDescription,
+          cvProfile: storedCv.cvProfile,
+          tailoredCv: result.tailoredCv,
+          tailorSections,
+          idealResumeMode
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Could not generate cover letter.");
+
+      setResult((prev) => {
+        if (!prev) return null;
+        const newRecs: Recommendation[] = payload.recommendations || [];
+        const existingRecKeys = new Set(prev.recommendations.map((r) => `${r.kind}:${r.title}`));
+        const mergedRecs = [
+          ...prev.recommendations,
+          ...newRecs.filter((r) => !existingRecKeys.has(`${r.kind}:${r.title}`))
+        ];
+        return {
+          ...prev,
+          coverLetter: payload.coverLetter,
+          recommendations: mergedRecs
+        };
+      });
+    } catch (caughtError) {
+      setCoverLetterError(caughtError instanceof Error ? caughtError.message : "Could not generate cover letter.");
+    } finally {
+      setIsGeneratingCoverLetter(false);
+    }
+  }
+
   function deleteSavedCv() {
     window.localStorage.removeItem(storageKey);
     setStoredCv(null);
     setResult(null);
     setError(null);
+    setCoverLetterError(null);
     setActiveScreen("starting");
   }
 
@@ -939,6 +986,34 @@ export function CvWorkspace() {
                   <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>→</span>
                 </button>
               ) : null}
+
+              {result && !result.coverLetter ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveScreen("result");
+                    handleGenerateCoverLetter();
+                    if (typeof window !== "undefined") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "10px 18px",
+                    fontSize: "0.95rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: "#ECFDF5",
+                    color: "#065F46",
+                    border: "1.5px solid #10B981",
+                    borderRadius: "6px"
+                  }}
+                >
+                  <span>✉ Create cover letter</span>
+                </button>
+              ) : null}
             </div>
           </section>
 
@@ -1225,7 +1300,7 @@ export function CvWorkspace() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap", alignItems: "center" }}>
             <button
               onClick={downloadTailoredCv}
               type="button"
@@ -1244,6 +1319,47 @@ export function CvWorkspace() {
             <button onClick={copyTailoredCv} type="button" style={{ padding: "8px 16px", borderRadius: "6px", cursor: "pointer" }}>
               Copy text
             </button>
+            {!result.coverLetter ? (
+              <button
+                onClick={handleGenerateCoverLetter}
+                disabled={isGeneratingCoverLetter}
+                type="button"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 18px",
+                  background: "#059669",
+                  color: "#FFFFFF",
+                  fontWeight: 600,
+                  borderRadius: "6px",
+                  border: "none",
+                  cursor: isGeneratingCoverLetter ? "not-allowed" : "pointer",
+                  opacity: isGeneratingCoverLetter ? 0.75 : 1
+                }}
+              >
+                {isGeneratingCoverLetter ? (
+                  <>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        border: "2px solid #FFFFFF",
+                        borderTopColor: "transparent",
+                        animation: "spin 0.8s linear infinite"
+                      }}
+                    />
+                    <span>Writing cover letter…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>✉ Create cover letter</span>
+                  </>
+                )}
+              </button>
+            ) : null}
           </div>
 
           {/* Styled Document Sheet Preview */}
@@ -1562,7 +1678,7 @@ export function CvWorkspace() {
             ) : null}
           </div>
 
-          {/* Cover Letter Section */}
+          {/* Cover Letter Section or Creation Prompt */}
           {result.coverLetter ? (
             <div style={{ marginTop: "28px" }}>
               <h2>Tailored Cover Letter</h2>
@@ -1594,7 +1710,94 @@ export function CvWorkspace() {
                 ))}
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div
+              style={{
+                marginTop: "28px",
+                padding: "24px",
+                borderRadius: "8px",
+                border: "1px dashed #D1D5DB",
+                background: "#F9FAFB",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+                <div style={{ maxWidth: 540 }}>
+                  <h3 style={{ margin: "0 0 6px 0", fontSize: "1.1rem", color: "#111827" }}>
+                    Want a Tailored Cover Letter for This Role?
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "0.9rem", color: "#4B5563", lineHeight: 1.5 }}>
+                    Generate a role-targeted cover letter matching this job description without re-tailoring your CV. It uses your verified profile facts and the selected ATS style.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateCoverLetter}
+                  disabled={isGeneratingCoverLetter}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "10px 22px",
+                    fontSize: "0.95rem",
+                    fontWeight: 600,
+                    borderRadius: "6px",
+                    background: activePreset.web.primaryColor,
+                    color: "#FFFFFF",
+                    border: "none",
+                    cursor: isGeneratingCoverLetter ? "not-allowed" : "pointer",
+                    opacity: isGeneratingCoverLetter ? 0.75 : 1,
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.08)"
+                  }}
+                >
+                  {isGeneratingCoverLetter ? (
+                    <>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 14,
+                          height: 14,
+                          borderRadius: "50%",
+                          border: "2px solid #FFFFFF",
+                          borderTopColor: "transparent",
+                          animation: "spin 0.8s linear infinite"
+                        }}
+                      />
+                      <span>Writing cover letter…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Create Cover Letter</span>
+                      <span style={{ fontSize: "1.1rem" }}>✉</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {isGeneratingCoverLetter ? (
+                <div style={{ marginTop: "16px", display: "flex", alignItems: "center", gap: "10px", color: activePreset.web.primaryColor, fontSize: "0.9rem", fontWeight: 500 }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      border: `2px solid ${activePreset.web.primaryColor}`,
+                      borderTopColor: "transparent",
+                      animation: "spin 0.8s linear infinite"
+                    }}
+                  />
+                  <span>AI is crafting a compelling cover letter tailored to the job description…</span>
+                </div>
+              ) : null}
+
+              {coverLetterError ? (
+                <p role="alert" style={{ marginTop: "12px", color: "#DC2626", fontWeight: "bold", fontSize: "0.9rem" }}>
+                  {coverLetterError}
+                </p>
+              ) : null}
+            </div>
+          )}
 
           {/* Recommendations & Unverified Additions */}
           <div style={{ marginTop: "28px" }}>
