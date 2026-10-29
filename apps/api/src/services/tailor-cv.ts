@@ -17,6 +17,8 @@ type TailorOptions = {
   idealResumeMode: boolean;
 };
 
+export type TailoredCvWithCoverLetter = TailoredCvResult & { coverLetter: string | null };
+
 function preserveUntailoredSections(original: CvProfile, tailored: CvProfile, tailorSections: TailorSection[]): CvProfile {
   const selected = new Set(tailorSections);
 
@@ -42,7 +44,7 @@ export async function tailorCv(
   jobAnalysis: JobAnalysis,
   cvProfile: CvProfile,
   options: TailorOptions
-): Promise<TailoredCvResult> {
+): Promise<TailoredCvWithCoverLetter> {
   const response = await openai.responses.parse({
     model: config.llmModel,
     instructions,
@@ -56,8 +58,32 @@ export async function tailorCv(
     throw new Error("CV tailoring did not produce a complete structured result");
   }
 
-  return {
+  const tailoredResult: TailoredCvWithCoverLetter = {
     ...response.output_parsed,
+    coverLetter: null,
     tailoredCv: preserveUntailoredSections(cvProfile, response.output_parsed.tailoredCv, options.tailorSections)
+  };
+
+  if (!options.includeCoverLetter) {
+    return tailoredResult;
+  }
+
+  // Generate cover letter in the same request cycle when the user opted in
+  const coverLetterResult = await tailorCoverLetter(jobAnalysis, cvProfile, {
+    tailoredCv: tailoredResult.tailoredCv,
+    idealResumeMode: options.idealResumeMode
+  });
+
+  // Merge cover letter recommendations, deduplicating by kind+title
+  const existingKeys = new Set(tailoredResult.recommendations.map((r) => `${r.kind}:${r.title}`));
+  const mergedRecommendations = [
+    ...tailoredResult.recommendations,
+    ...coverLetterResult.recommendations.filter((r) => !existingKeys.has(`${r.kind}:${r.title}`))
+  ];
+
+  return {
+    ...tailoredResult,
+    coverLetter: coverLetterResult.coverLetter,
+    recommendations: mergedRecommendations
   };
 }
